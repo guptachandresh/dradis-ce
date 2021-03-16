@@ -24,6 +24,8 @@ class Node < ApplicationRecord
   has_many :issues, -> { distinct }, through: :evidence
   has_many :notes, dependent: :destroy
 
+  has_many_attached :attachments
+
   def project
     # dummy project; this makes Node's interface more similar to how it is
     # in Pro and makes it easier to deal with node in URL helpers
@@ -56,7 +58,7 @@ class Node < ApplicationRecord
   end
 
   # -- Callbacks ------------------------------------------------------------
-  before_destroy :destroy_attachments
+  #before_destroy :destroy_attachments
   before_save do |record|
     record.type_id = Types::DEFAULT unless record.type_id
     record.position = 0 unless record.position
@@ -83,9 +85,9 @@ class Node < ApplicationRecord
   end
 
   # Return all the Attachment objects associated with this Node.
-  def attachments
-    Attachment.find(:all, :conditions => {:node_id => self.id})
-  end
+  # def attachments
+  #   Attachment.find(:all, :conditions => {:node_id => self.id})
+  # end
 
   def user_node?
     Types::USER_TYPES.include?(self.type_id)
