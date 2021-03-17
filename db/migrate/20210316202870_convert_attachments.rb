@@ -1,36 +1,23 @@
 class ConvertAttachments < ActiveRecord::Migration[6.1]
-  class MigrationAttachment
-    AttachmentPwd = Rails.root.join('attachments')
-
-    def self.all(&block)
-      Dir.foreach(AttachmentPwd) do |foldername|
-        next if foldername == '.' or foldername == '..'
-
-        Dir.foreach(AttachmentPwd.join(foldername)) do |attachment|
-          next if attachment == '.' or attachment == '..'
-          block.call(foldername, attachment)
-        end
-      end
-    end
-  end
+  AttachmentPwd = Rails.root.join('attachments')
 
   def up
-    MigrationAttachment.all do |foldername, attachment|
-      n = Node.find(foldername)
-      file = MigrationAttachment::AttachmentPwd.join(foldername, attachment)
-      n.attachments.attach(io: File.open(file), filename: attachment)
+    Pathname.glob(AttachmentPwd.join('*', '**')).each do |attachment|
+      node_id = attachment.to_s.split('/')[-2]
+      node = Node.find(node_id)
+      node.attachments.attach(io: File.open(attachment), filename: attachment.basename)
 
-      FileUtils.rm(file)
+      FileUtils.rm(attachment)
     end
 
-    FileUtils.rm_rf(MigrationAttachment::AttachmentPwd)
+    FileUtils.rm_rf(AttachmentPwd)
   end
 
   def down
-    FileUtils.mkdir_p(MigrationAttachment::AttachmentPwd)
+    FileUtils.mkdir_p(AttachmentPwd)
 
     ActiveStorage::Attachment.all.each do |attachment|
-      folder = MigrationAttachment::AttachmentPwd.join(attachment.record_id.to_s)
+      folder = AttachmentPwd.join(attachment.record_id.to_s)
       filename = folder.join(attachment.filename.to_s)
 
       FileUtils.mkdir_p(folder)
