@@ -24,7 +24,7 @@ class Node < ApplicationRecord
   has_many :issues, -> { distinct }, through: :evidence
   has_many :notes, dependent: :destroy
 
-  has_many_attached :attachments
+  has_many_attached :attachments, dependent: :destroy
 
   def project
     # dummy project; this makes Node's interface more similar to how it is
