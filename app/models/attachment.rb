@@ -63,11 +63,9 @@
 class Attachment < File
   require 'fileutils'
   # Set the path to the attachment storage
-  AttachmentPwd = Rails.env.test? ? Rails.root.join('tmp', 'attachments') : Rails.root.join('attachments')
-  FileUtils.mkdir_p(AttachmentPwd) unless File.exists?(AttachmentPwd)
+  AttachmentPwd = Rails.env.test? ? Rails.root.join('tmp', 'storage') : Rails.root.join('storage')
 
   # -- Class Methods  ---------------------------------------------------------
-
   def self.all(*args)
     find(:all, *args)
   end
@@ -88,32 +86,17 @@ class Attachment < File
   # Return the attachment instance(s) based on the find parameters
   def self.find(*args)
     options = args.extract_options!
-    dir = Dir.new(pwd)
 
     # makes the find request and stores it to resources
-    return_value = case args.first
+    case args.first
     when :all, :first, :last
       attachments = []
       if options[:conditions] && options[:conditions][:node_id]
         node_id = options[:conditions][:node_id].to_s
         raise "Node with ID=#{node_id} does not exist" unless Node.exists?(node_id)
-        if (File.exist?( File.join(pwd, node_id)))
-          node_dir = Dir.new(pwd.join(node_id)).sort
-          node_dir.each do |attachment|
-            next unless (attachment =~ /^(.+)$/) == 0 && !File.directory?(pwd.join(node_id, attachment))
-            attachments << Attachment.new(:filename => $1, :node_id => node_id.to_i)
-          end
-        end
+        attachments = ActiveStorage::Attachment.new(record_id: node_id.to_i, record_type: 'Node')
       else
-        dir.each do |node|
-          next unless node =~ /^\d*$/
-          node_dir = Dir.new(pwd.join(node)).sort
-          node_dir.each do |attachment|
-            next unless (attachment =~ /^(.+)$/) == 0 && !File.directory?(pwd.join(node, attachment))
-            attachments << Attachment.new(:filename => $1, :node_id => node.to_i)
-          end
-        end
-        attachments.sort_by!(&:filename)
+        attachments = ActiveStorage::Attachment.all.order(:filename)
       end
 
       # return based on the request arguments
@@ -128,110 +111,19 @@ class Attachment < File
     else
       # in this routine we find the attachment by file name and node id
       filename = args.first
-      attachments = []
       raise "You need to supply a node id in the condition parameter" unless options[:conditions] && options[:conditions][:node_id]
+
       node_id = options[:conditions][:node_id].to_s
       raise "Node with ID=#{node_id} does not exist" unless Node.exists?(node_id)
-      node_dir = Dir.new(pwd.join(node_id)).sort
-      node_dir.each do |attachment|
-        next unless ((attachment =~ /^(.+)$/) == 0 && $1 == filename)
-        attachments << Attachment.new(:filename => $1, :node_id => node_id.to_i)
-      end
-      raise "Could not find Attachment with filename #{filename}" if attachments.empty?
-      attachments.first
+
+      blobs = ActiveStorage::Blob.where(filename: filename)
+      raise "Could not find Attachment with filename #{filename}" if blobs.empty?
+
+      blobs.first.attachments.first
     end
-    return return_value
   end
 
   def self.model_name
     ActiveModel::Name.new(self)
-  end
-
-  # Class method that returns the path to the attachment storage
-  def self.pwd
-    AttachmentPwd
-  end
-
-  # -- Instance Methods  ------------------------------------------------------
-
-  attr_accessor :filename, :node_id, :tempfile
-  attr_reader :id
-
-  # Initializes the attachment instance
-  def initialize(*args)
-    options   = args.extract_options!
-    @filename = options[:filename]
-    @node_id  = options[:node_id]
-    @tempfile = args[0] || options[:tempfile]
-
-    if File.exists?(fullpath) && File.file?(fullpath)
-      super(fullpath, 'rb+')
-      @initialfile = fullpath.clone
-    elsif @tempfile && File.basename(@tempfile) != ''
-      @initialfile = Rails.root.join('tmp', File.basename(@tempfile))
-      super(@initialfile, 'wb+')
-    else
-      raise 'No physical file available'
-    end
-  end
-
-  # Closes the current file handle, this writes the content to the file system
-  def save
-    if File.exists?(fullpath) && File.file?(fullpath)
-      self.close
-    else
-      raise "Node with ID=#{@node_id} does not exist" unless @node_id && Node.exists?(@node_id)
-
-      @filename ||= File.basename(@tempfile)
-      FileUtils.mkdir(File.dirname(fullpath)) unless File.exists?(File.dirname(fullpath))
-      self.close
-      FileUtils.cp(self.path, fullpath) if @intialfile != fullpath
-      if (@initialfile && @initialfile != fullpath)
-        # If we are still a temp file
-        FileUtils.rm(@initialfile)
-      end
-      @initialfile = fullpath.clone
-    end
-  end
-
-  # Deletes the file that the instance is pointing to from memory
-  def delete
-    self.close
-    if (!@initialfile || (File.dirname(@initialfile) == Rails.root.join('tmp')))
-      raise 'No physical file to delete'
-    end
-    FileUtils.rm(@initialfile)
-  end
-
-  # Makes a copy of itself for the given node.
-  def copy_to(node)
-    name = NamingService.name_file(
-      original_filename: filename,
-      pathname: Attachment.pwd.join(node.id.to_s)
-    )
-
-    new_file_path = fullpath(node.id, name)
-
-    dir_name = File.dirname new_file_path
-    FileUtils.mkdir dir_name unless File.exists? dir_name
-
-    FileUtils.cp fullpath, new_file_path
-
-    Attachment.find name, conditions: { node_id: node.id }
-  end
-
-  # Retruns the full path of an attachment on the file system
-  def fullpath(node_id = @node_id, filename = @filename)
-    self.class.pwd.join(node_id.to_s, filename.to_s)
-  end
-
-  # Provide a JSON representation of this object that can be understood by
-  # components of the web interface
-  def to_json(options = {})
-    {
-      filename:   @filename,
-      size:       File.size(self.fullpath),
-      created_at: self.ctime
-    }.to_json(options)
   end
 end

@@ -27,7 +27,6 @@ module Dradis::CE::API
         uploaded_files.each do |uploaded_file|
           attachment_name = NamingService.name_file(
             original_filename: uploaded_file.original_filename,
-            pathname: Attachment.pwd.join(@node.id.to_s)
           )
 
           attachment = Attachment.new(attachment_name, node_id: @node.id)

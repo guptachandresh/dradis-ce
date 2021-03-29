@@ -12,8 +12,6 @@ describe "upload requests" do
     @uploads_node = @project.plugin_uploads_node
   end
 
-  after { FileUtils.rm_rf(Attachment.pwd.join(@uploads_node.id.to_s)) }
-
   describe "POST #parse" do
     let(:uploader) { 'Dradis::Plugins::Projects::Upload::Template' }
     let(:send_request) do
@@ -22,7 +20,7 @@ describe "upload requests" do
 
     it "creates issues from the uploaded XML" do
       skip 'this is not the right place to test the Upload parser itself'
-      expect{send_request}.to change{Issue.count}.by(35)
+      expect { send_request }.to change { Issue.count }.by(35)
     end
 
     context "small file size (< 1Mb)" do
@@ -39,12 +37,8 @@ describe "upload requests" do
       end
 
       it 'imports the uploaded template', js: true do
-        attachments_path = Attachment.pwd.join(@uploads_node.id.to_s)
-        attachment_file  = attachments_path.join('temp').to_s
-
-        FileUtils.mkdir_p(attachments_path)
-        FileUtils.cp(small_file, attachment_file)
-        expect(File.exist?(attachment_file)).to be true
+        node = create(:node)
+        node.attachments.attach(io: File.open(small_file), filename: 'temp')
 
         allow(importer_class).to receive(:new).and_return(importer)
         allow(importer).to receive(:import)
@@ -71,12 +65,8 @@ describe "upload requests" do
       end
 
       it "enqueues a background job with the right parameters" do
-        attachments_path = Attachment.pwd.join(@uploads_node.id.to_s)
-        attachment_file  = attachments_path.join('temp').to_s
-
-        FileUtils.mkdir_p(attachments_path)
-        FileUtils.cp(big_file, attachment_file)
-        expect(File.exist?(attachment_file)).to be true
+        node = create(:node)
+        node.attachments.attach(io: File.open(big_file), filename: 'temp')
 
         # Don't want to deal with Redis or Resque here
         FakeJob = Struct.new(:job_id)
@@ -84,7 +74,7 @@ describe "upload requests" do
 
         expect(UploadJob).to receive(:perform_later).with(
           hash_including(
-            file: attachment_file,
+            file: ActiveStorage::Blob.service.path_for(node.attachments.first.key),
             plugin_name: uploader
           )
         ).once

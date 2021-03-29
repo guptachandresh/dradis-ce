@@ -18,23 +18,21 @@ class AttachmentsController < AuthenticatedController
 
     attachment_name = NamingService.name_file(
       original_filename: uploaded_file.original_filename,
-      pathname: Attachment.pwd.join(@node.id.to_s)
     )
 
-    @attachment = Attachment.new(attachment_name, node_id: @node.id)
-    @attachment << uploaded_file.read
-    @attachment.save
+    @node.attachments.attach(io: uploaded_file, filename: attachment_name)
+    @attachment = @node.attachments.last
 
     # new jQuery uploader
     json = {
-      name:        @attachment.filename,
-      size:        File.size(@attachment.fullpath),
-      url:         project_node_attachment_path(current_project, @node, @attachment.filename),
-      delete_url:  project_node_attachment_path(current_project, @node, @attachment.filename),
+      name: @attachment.filename,
+      size: @attachment.byte_size,
+      url: project_node_attachment_path(current_project, @node, @attachment.filename),
+      delete_url: project_node_attachment_path(current_project, @node, @attachment.filename),
       delete_type: 'DELETE'
     }
 
-    if Mime::Type.lookup_by_extension(File.extname(@attachment.filename).downcase.tr('.','')).to_s =~ /^image\//
+    if @attachment.content_type =~ /^image\//
       json[:thumbnail_url] = project_node_attachment_path(current_project, @node, @attachment.filename)
     end
 
