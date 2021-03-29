@@ -8,7 +8,6 @@ class AttachmentsController < AuthenticatedController
   # Retrieve all the associated attachments for a given :node_id
   def index
     @attachments = Node.find(params[:node_id]).attachments
-    @attachments.each do |a| a.close end
   end
 
   # Create a new attachment for a given :node_id using a file that has been
@@ -42,15 +41,13 @@ class AttachmentsController < AuthenticatedController
   # It is possible to rename attachments and this function provides that
   # functionality.
   def update
-    filename    = params[:filename]
-    attachment  = Attachment.find(filename, conditions: { node_id: @node.id } )
-    attachment.close
-    new_name    = CGI::unescape(attachment_params[:filename])
-    destination = Attachment.pwd.join(@node.id.to_s, new_name).to_s
+    attachment = ActiveStorage::Attachment.joins(:blob).where(
+      'active_storage_blobs.filename': params[:filename],
+      record_id: @node.id,
+      record_type: 'Node'
+    )
+    attachment.update(filename: CGI::unescape(attachment_params[:filename]))
 
-    if !File.exist?(destination) && !destination.match(/^#{Attachment.pwd}/).nil?
-      File.rename attachment.fullpath, destination
-    end
     render json: { success: true }
   end
 

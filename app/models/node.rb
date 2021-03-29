@@ -2,8 +2,7 @@
 # tree structure of Nodes to hierarchically structure the information held
 # in the repository.
 #
-# Each Node has a :parent node and a :label. Nodes can also have many
-# Attachment objects associated with them.
+# Each Node has a :parent node and a :label.
 class Node < ApplicationRecord
   include NodeProperties
 
@@ -84,11 +83,6 @@ class Node < ApplicationRecord
     node && node.ancestors.include?(self)
   end
 
-  # Return all the Attachment objects associated with this Node.
-  # def attachments
-  #   Attachment.find(:all, :conditions => {:node_id => self.id})
-  # end
-
   def user_node?
     Types::USER_TYPES.include?(self.type_id)
   end
@@ -100,12 +94,6 @@ class Node < ApplicationRecord
   def update_parents_counter_cache; end
 
   private
-  # Whenever a node is deleted all the associated attachments have to be
-  # deleted too
-  def destroy_attachments
-    attachments_dir = Attachment.pwd.join(self.id.to_s)
-    FileUtils.rm_rf attachments_dir if File.exists?(attachments_dir)
-  end
 
   def parent_node
     if self.parent.nil? || self.parent.project_id != self.project_id
