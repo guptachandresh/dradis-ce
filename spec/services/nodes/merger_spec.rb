@@ -63,21 +63,18 @@ RSpec.describe Nodes::Merger do
     end
 
     it 'moves attachments to target node' do
-      attachment = create(:attachment, node: source_node)
+      source_node.attachments.attach(io: File.open(Rails.root.join('spec/fixtures/files/rails.png')), filename: 'rails.png')
+      attachment = ActiveStorage::Attachment.first
+
       merge_nodes
-      target_attachment = Attachment.find(attachment.filename,
-        conditions: { node_id: target_node.id })
 
-      expect(target_attachment).to be_an Attachment
-
-      FileUtils.rm_rf(Dir.glob(Attachment.pwd + '*'))
+      expect(attachment.reload.record_id).to eq target_node.id
     end
 
     it 'increases the target node attachment count' do
-      create(:attachment, node: source_node)
-      expect { merge_nodes }.to change { target_node.attachments.count }.by 1
+      source_node.attachments.attach(io: File.open(Rails.root.join('spec/fixtures/files/rails.png')), filename: 'rails.png')
 
-      FileUtils.rm_rf(Dir.glob(Attachment.pwd + '*'))
+      expect { merge_nodes }.to change { target_node.attachments.count }.by 1
     end
 
     describe 'property merges' do
@@ -154,7 +151,7 @@ RSpec.describe Nodes::Merger do
 
     describe 'when an error is raised' do
       before do
-        expect(Node).to receive(:destroy).and_raise StandardError
+        expect(Node).to receive(:destroy).and_raise ActiveRecord::Rollback
       end
 
       it { should eq source_node }
@@ -211,17 +208,13 @@ RSpec.describe Nodes::Merger do
       end
 
       it 'does not move attachments to target node' do
-        create(:attachment, node: source_node)
+        source_node.attachments.attach(io: File.open(Rails.root.join('spec/fixtures/files/rails.png')), filename: 'rails.png')
         expect { merge_nodes }.not_to change { target_node.attachments.count }
-
-        FileUtils.rm_rf(Dir.glob(Attachment.pwd + '*'))
       end
 
       it 'does not change source node attachments count' do
-        create(:attachment, node: source_node)
+        source_node.attachments.attach(io: File.open(Rails.root.join('spec/fixtures/files/rails.png')), filename: 'rails.png')
         expect { merge_nodes }.not_to change { source_node.attachments.count }
-
-        FileUtils.rm_rf(Dir.glob(Attachment.pwd + '*'))
       end
     end
   end

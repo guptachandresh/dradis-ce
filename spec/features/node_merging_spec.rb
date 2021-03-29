@@ -91,7 +91,7 @@ describe 'merging a node', js: true do
   end
 
   it 'moves attachments to target node' do
-    create(:attachment, node: source_node)
+    source_node.attachments.attach(io: File.open(Rails.root.join('spec/fixtures/files/rails.png')), filename: 'rails.png')
 
     within_merge_node_modal do
       click_link(target_node.label)
