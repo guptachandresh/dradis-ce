@@ -3,20 +3,16 @@ class NamingService
   # return a count based alternative, E.g. filename_copy-01.png, filename_copy-02.png
   # If not, return the original filename.
   #   original_filename: the filename in String
-  #   pathname: Pathname object
-  def self.name_file(original_filename:, pathname:)
-    # Remove newlines and duplicate spaces
-    original_filename = original_filename.squish
-
-    return original_filename unless File.exists?(pathname.join(original_filename))
+  def self.name_file(original_filename:)
+    return original_filename unless ActiveStorage::Blob.where(filename: original_filename).any?
 
     extension = File.extname(original_filename)
     basename = File.basename(original_filename, extension)
-    matching_filenames = Dir.glob(pathname.join("#{basename}_copy-*#{extension}"))
+    filenames = ActiveStorage::Blob.where("filename LIKE ?", "#{basename}_copy-%#{extension}").pluck(:filename)
 
     new_name(
       name: basename,
-      sequence: next_sequence(matching_names: matching_filenames, suffix: extension),
+      sequence: next_sequence(matching_names: filenames, suffix: extension),
       suffix: extension
     )
   end
