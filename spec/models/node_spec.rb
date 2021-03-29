@@ -16,28 +16,27 @@ describe Node do
   it { should have_many(:activities) }
 
   describe '#destroy' do
-    let(:sample_file) { Rails.root.join('public', 'images', 'rails.png') }
+    let(:sample_file) { Pathname.new Rails.root.join('spec', 'fixtures', 'files', 'rails.png') }
 
     before do
       node.save!
-      @attachment = Attachment.new(sample_file, node_id: node.id)
-      @attachment.save
-      @activities = create_list(:activity, 2, trackable: node)
-      node.destroy
     end
 
     it 'deletes all associated attachments' do
-      expect(File.exists?(@attachment.fullpath)).to be false
-    end
+      node.attachments.attach(io: File.open(sample_file), filename: sample_file.basename)
 
-    it 'deletes its corresponding attachment subfolder' do
-      expect(File.exists?(Attachment.pwd.join(node.id.to_s))).to be false
+      expect do
+        node.destroy
+      end.to have_enqueued_job(ActiveStorage::PurgeJob)
     end
 
     it "doesn't delete or nullify any associated Activities" do
+      activities = create_list(:activity, 2, trackable: node)
+
+      node.destroy
       # We want to keep records of actions performed on a node even after it's
       # been deleted.
-      @activities.each do |activity|
+      activities.each do |activity|
         activity.reload
         expect(activity.trackable).to be nil
         expect(activity.trackable_id).to eq node.id

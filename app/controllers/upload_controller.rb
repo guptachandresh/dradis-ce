@@ -40,11 +40,11 @@ class UploadController < AuthenticatedController
     # Files smaller than 1Mb are processed inlined, others are
     # processed in the background via a Redis worker.
     #
-    # In Production, play it save and use the worker (the Rules Engine can
+    # In Production, play it safe and use the worker (the Rules Engine can
     # cause the processing of a small file to time out).
     #
     # In Development and testing, if the file is small, process in line.
-    if Rails.env.production? || (File.size(attachment.fullpath) > 1024*1024)
+    if Rails.env.production? || (attachment.byte_size > 1024*1024)
       process_upload_background(attachment: attachment)
     else
       process_upload_inline(attachment: attachment)
@@ -71,7 +71,7 @@ class UploadController < AuthenticatedController
     # activejob async queue adapter
     UploadJob.perform_later(
       default_user_id: current_user.id,
-      file: attachment.fullpath.to_s,
+      file: ActiveStorage::Blob.service.path_for(attachment.key),
       plugin_name: @uploader.to_s,
       project_id: current_project.id,
       uid: params[:item_id].to_i
@@ -90,7 +90,7 @@ class UploadController < AuthenticatedController
         project_id: current_project.id
       )
 
-      importer.import(file: attachment.fullpath)
+      importer.import(file: ActiveStorage::Blob.service.path_for(attachment.key))
     rescue Exception => e
       # Fail noisily in test mode; re-raise the error so the test fails:
       raise if Rails.env.test?

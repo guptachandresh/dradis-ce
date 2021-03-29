@@ -41,7 +41,7 @@
                   <tr>
                     <td class="name">
                       <%= link_to main_app.project_node_attachment_path(node.project, node, attachment.filename), download: attachment.filename, title: attachment.filename, class: 'filename' do %>
-                      <i class="fa fa-paperclip"></i> <%= short_filename(attachment.filename) %>
+                      <i class="fa fa-paperclip"></i> <%= short_filename(attachment.filename.to_s) %>
                       <% end %>
                     </td>
                     <td rowspan="2" align="right" class="delete">
@@ -64,7 +64,7 @@
                   </tr>
                   <tr>
                     <td class="size">
-                      <span><%= number_to_human_size(File.size(attachment)) %></span>
+                      <span><%= number_to_human_size(attachment.byte_size) %></span>
                     </td>
                   </tr>
                 </table>
