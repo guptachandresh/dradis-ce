@@ -103,8 +103,10 @@ class DradisTasks < Thor
       # dradis:reset:database truncates the tables and resets the :id column so
       # we know the right node ID we're going to get based on the project.xml
       # structure.
-      FileUtils.mkdir_p(Attachment.pwd.join('5'))
-      template 'command-01.png', Attachment.pwd.join('5/command-01.png')
+      Node.find(5).attachments.attach(
+        io: File.new(Rails.root.join('lib', 'tasks', 'templates', 'command-01.png')),
+        filename: 'command-01.png'
+      )
     end
   end
 end
