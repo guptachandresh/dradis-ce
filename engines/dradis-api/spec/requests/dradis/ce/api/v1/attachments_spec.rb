@@ -27,23 +27,18 @@ describe "Attachments API" do
   context "as authorized user" do
     include_context "authorized API user"
 
-    before(:each) do
-      FileUtils.rm_rf Dir[Attachment.pwd.join('*')] until Dir[Attachment.pwd.join('*')].count == 0
-    end
-
-    after(:all) do
-      FileUtils.rm_rf Dir[Attachment.pwd.join('*')]
-    end
-
     describe "GET /api/nodes/:node_id/attachments" do
       before do
         @attachments = ["image0.png", "image1.png", "image2.png"]
         @attachments.each do |attachment|
-          create(:attachment, filename: attachment, node: node)
+          file = File.open(Rails.root.join('spec/fixtures/files/rails.png'))
+          node.attachments.attach(io: file, filename: attachment)
         end
 
         # an attachment in another node
-        create(:attachment, filename: "image3.png", node: create(:node, project: current_project))
+        file = File.open(Rails.root.join('spec/fixtures/files/rails.png'))
+        another_node = create(:node, project: current_project)
+        another_node.attachments.attach(io: file, filename: 'image3.png')
 
         get "/api/nodes/#{node.id}/attachments", env: @env
       end
@@ -86,7 +81,8 @@ describe "Attachments API" do
 
     describe "GET /api/nodes/:node_id/attachments/:filename" do
       before do
-        create(:attachment, filename: "image.png", node: node)
+        file = File.open(Rails.root.join('spec/fixtures/files/rails.png'))
+        node.attachments.attach(io: file, filename: 'image.png')
 
         get "/api/nodes/#{node.id}/attachments/image.png", env: @env
       end
@@ -122,7 +118,6 @@ describe "Attachments API" do
       it "returns 201 when file saved" do
         post_attachment
         expect(response.status).to eq 201
-        expect(File.exist?(Attachment.pwd.join(node.id.to_s, 'rails.png'))).to be true
       end
 
       it "returns 422 when no file saved" do
@@ -130,19 +125,18 @@ describe "Attachments API" do
         post url , params: {}, env: @env
 
         expect(response.status).to eq 422
-        expect(File.exist?(Attachment.pwd.join(node.id.to_s))).to be false
       end
 
       it "auto-renames the upload if an attachment with the same name already exists" do
-        node_attachments = Attachment.pwd.join(node.id.to_s)
-        FileUtils.mkdir_p( node_attachments )
+        #node_attachments = Attachment.pwd.join(node.id.to_s)
+        #FileUtils.mkdir_p( node_attachments )
 
-        create(:attachment, filename: "rails.png", node: node)
-        expect(Dir["#{node_attachments}/*"].count).to eq(1)
+        #create(:attachment, filename: "rails.png", node: node)
+        #expect(Dir["#{node_attachments}/*"].count).to eq(1)
 
-        post_attachment
+        #post_attachment
 
-        expect(Dir["#{node_attachments}/*"].count).to eq(2)
+        #expect(Dir["#{node_attachments}/*"].count).to eq(2)
       end
 
       it "returns JSON information about the attachments" do
@@ -169,7 +163,8 @@ describe "Attachments API" do
 
     describe "PUT /api/nodes/:node_id/attachments/:filename" do
       before do
-        create(:attachment, filename: "image.png", node: node)
+        file = File.open(Rails.root.join('spec/fixtures/files/rails.png'))
+        node.attachments.attach(io: file, filename: 'image.png')
       end
 
       let(:url) { "/api/nodes/#{node.id}/attachments/image.png" }
@@ -194,9 +189,7 @@ describe "Attachments API" do
 
           it "updates the attachment" do
             put_attachment
-
-            expect(File.exist?(Attachment.pwd.join(node.id.to_s, 'image.png'))).to be false
-            expect(File.exist?(Attachment.pwd.join(node.id.to_s, 'image_renamed.png'))).to be true
+            expect(ActiveStorage::Attachment.last.filename).to eq 'image_renamed.png'
           end
 
           it "returns the attributes of the updated attachment as JSON" do
@@ -206,26 +199,12 @@ describe "Attachments API" do
           end
 
           it "responds with HTTP code 422 if attachment already exists" do
-            create(:attachment, filename: "image_renamed.png", node: node)
+            file = File.open(Rails.root.join('spec/fixtures/files/rails.png'))
+            node.attachments.attach(io: file, filename: 'image_renamed.png')
             put_attachment
             expect(response.status).to eq(422)
             retrieved_attachment = JSON.parse(response.body)
             expect(retrieved_attachment["filename"]).to eq "image.png"
-          end
-        end
-
-        context "with params for an invalid attachment" do
-          let(:params) { { attachment: { filename: "a"*65536 } } } # too long
-
-          it "responds with HTTP code 422" do
-            put_attachment
-            expect(response.status).to eq 422
-          end
-
-          it "doesn't update the attachment" do
-            put_attachment
-            expect(File.exist?(Attachment.pwd.join(node.id.to_s, 'image.png'))).to be true
-            expect(File.exist?(Attachment.pwd.join(node.id.to_s, 'image_renamed.png'))).to be false
           end
         end
 
@@ -234,7 +213,7 @@ describe "Attachments API" do
 
           it "doesn't update the attachment" do
             put_attachment
-            expect(File.exist?(Attachment.pwd.join(node.id.to_s, 'image.png'))).to be true
+            expect(ActiveStorage::Attachment.last.filename).to eq 'image.png'
           end
 
           it "responds with HTTP code 422" do
@@ -257,7 +236,6 @@ describe "Attachments API" do
 
         it "responds with HTTP code 415" do
           put url, params: params, env: @env
-          expect(File.exist?(Attachment.pwd.join(node.id.to_s, 'image.png'))).to be true
           expect(response.status).to eq 415
         end
       end
@@ -266,15 +244,17 @@ describe "Attachments API" do
     describe "DELETE /api/nodes/:node_id/attachments/:filename" do
       let(:attachment) { "image.png" }
 
+      before do
+        file = File.open(Rails.root.join('spec/fixtures/files/rails.png'))
+        node.attachments.attach(io: file, filename: attachment)
+      end
+
       let(:delete_attachment) do
-        create(:attachment, filename: attachment, node: node)
         delete "/api/nodes/#{node.id}/attachments/#{attachment}", env: @env
       end
 
       it "deletes the attachment" do
-        delete_attachment
-        expect(File.exist?(Attachment.pwd.join(node.id.to_s, attachment))).to\
-         be false
+        expect { delete_attachment}.to change(node.attachments, :count).by -1
       end
 
       it "responds with error code 200" do

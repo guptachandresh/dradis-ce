@@ -37,8 +37,7 @@ describe "upload requests" do
       end
 
       it 'imports the uploaded template', js: true do
-        node = create(:node)
-        node.attachments.attach(io: File.open(small_file), filename: 'temp')
+        @uploads_node.attachments.attach(io: File.open(small_file), filename: 'temp')
 
         allow(importer_class).to receive(:new).and_return(importer)
         allow(importer).to receive(:import)
@@ -65,8 +64,7 @@ describe "upload requests" do
       end
 
       it "enqueues a background job with the right parameters" do
-        node = create(:node)
-        node.attachments.attach(io: File.open(big_file), filename: 'temp')
+        @uploads_node.attachments.attach(io: File.open(big_file), filename: 'temp')
 
         # Don't want to deal with Redis or Resque here
         FakeJob = Struct.new(:job_id)
@@ -74,7 +72,7 @@ describe "upload requests" do
 
         expect(UploadJob).to receive(:perform_later).with(
           hash_including(
-            file: ActiveStorage::Blob.service.path_for(node.attachments.first.key),
+            file: ActiveStorage::Blob.service.path_for(@uploads_node.attachments.first.key),
             plugin_name: uploader
           )
         ).once
