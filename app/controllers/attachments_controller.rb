@@ -45,7 +45,7 @@ class AttachmentsController < AuthenticatedController
       'active_storage_blobs.filename': params[:filename],
       record_id: @node.id,
       record_type: 'Node'
-    )
+    ).first
     attachment.update(filename: CGI::unescape(attachment_params[:filename]))
 
     render json: { success: true }

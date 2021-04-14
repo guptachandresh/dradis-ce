@@ -25,9 +25,7 @@ class UploadController < AuthenticatedController
   def create
     filename = CGI::escape params[:file].original_filename
     # add the file as an attachment
-    @attachment = Attachment.new(filename, node_id: current_project.plugin_uploads_node.id)
-    @attachment << params[:file].read
-    @attachment.save
+    current_project.plugin_uploads_node.attachments.attach(io: uploaded_file, filename: filename)
 
     @success = true
     @item_id = params[:item_id].to_i

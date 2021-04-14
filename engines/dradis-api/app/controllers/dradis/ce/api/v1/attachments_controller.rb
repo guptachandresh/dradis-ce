@@ -9,7 +9,7 @@ module Dradis::CE::API
       skip_before_action :json_required, :only => [:create]
 
       def index
-        @attachments = @node.attachments.each(&:close)
+        @attachments = @node.attachments
       end
 
       def show
@@ -29,9 +29,8 @@ module Dradis::CE::API
             original_filename: uploaded_file.original_filename,
           )
 
-          attachment = Attachment.new(attachment_name, node_id: @node.id)
-          attachment << uploaded_file.read
-          attachment.save
+          @node.attachments.attach(io: uploaded_file, filename: attachment_name)
+          attachment = @node.attachments.last
 
           @attachments << attachment
         end
@@ -44,28 +43,26 @@ module Dradis::CE::API
       end
 
       def update
-        attachment  = Attachment.find(params[:filename], conditions: { node_id: @node.id } )
-        attachment.close
+        @attachment = Attachment.find(params[:filename], conditions: { node_id: @node.id } )
+        new_name = CGI::unescape(attachment_params[:filename])
 
-        begin
-          new_name    = CGI::unescape(attachment_params[:filename])
-          destination = Attachment.pwd.join(@node.id.to_s, new_name).to_s
+        existing_attachment = ActiveStorage::Attachment.joins(:blob).where(
+          'active_storage_blobs.filename': new_name,
+          record_id: @node.id,
+          record_type: 'Node'
+        ).first
 
-          if !File.exist?(destination) && !destination.match(/^#{Attachment.pwd}/).nil?
-            File.rename attachment.fullpath, destination
-            @attachment = Attachment.find(new_name, conditions: { node_id: @node.id } )
-          else
-            raise "Destination file already exists"
-          end
-        rescue
-          @attachment = attachment
+        if !existing_attachment
+          @attachment.update(filename: new_name)
+          render status: 200
+        else
           render status: 422
         end
       end
 
       def destroy
         @attachment = Attachment.find(params[:filename], conditions: { node_id: @node.id} )
-        @attachment.delete
+        @attachment.destroy
 
         render_successful_destroy_message
       end

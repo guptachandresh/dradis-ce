@@ -116,10 +116,16 @@ class Attachment < File
       node_id = options[:conditions][:node_id].to_s
       raise "Node with ID=#{node_id} does not exist" unless Node.exists?(node_id)
 
-      blobs = ActiveStorage::Blob.where(filename: filename)
-      raise "Could not find Attachment with filename #{filename}" if blobs.empty?
+      attachment = ActiveStorage::Attachment.
+        joins(:blob).
+        where(
+          'active_storage_blobs.filename': filename,
+          record_type: 'Node',
+          record_id: node_id
+        ).first
+      raise "Could not find Attachment with filename #{filename}" unless attachment
 
-      blobs.first.attachments.first
+      attachment
     end
   end
 
