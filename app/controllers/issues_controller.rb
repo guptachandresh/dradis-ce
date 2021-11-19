@@ -10,13 +10,16 @@ class IssuesController < AuthenticatedController
 
   before_action :set_issuelib
   before_action :set_issues, except: [:destroy]
+  after_action :rebuild_columns, only: [:create, :update, :destroy]
 
   before_action :set_or_initialize_issue, except: [:import, :index]
   before_action :set_or_initialize_tags, except: [:destroy]
   before_action :set_auto_save_key, only: [:new, :create, :edit, :update]
 
   def index
-    @columns = @issues.map(&:fields).map(&:keys).uniq.flatten | ['Title', 'Tags', 'Affected', 'Created', 'Created by', 'Updated']
+    @columns = Rails.cache.fetch("projects.#{current_project.id}.issue_columns") do
+      UpdateColumnsJob.perform_now(project_id: current_project.id)
+    end
   end
 
   def show
@@ -165,5 +168,9 @@ class IssuesController < AuthenticatedController
                       else
                         "project-#{current_project.id}-issue"
                       end
+  end
+
+  def rebuild_columns
+    UpdateColumnsJob.perform_later(project_id: current_project.id)
   end
 end
