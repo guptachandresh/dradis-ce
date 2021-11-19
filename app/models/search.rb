@@ -2,27 +2,22 @@
 # so we don't expose more than one instance level variable
 # in controller
 class Search
-  attr_reader :page, :project, :query, :scope
+  attr_reader :page, :project, :query, :scope, :per
 
-  def initialize(query:, scope: :all, page: 1, project:)
+  def initialize(query:, scope: :all, page: 1, project:, per: 25)
     @query   = query
     @scope   = scope
     @page    = page
+    @per     = per
     @project = project
   end
 
   # Return results based on params.
   # If search term is empty return empty array
   def results
-    return [] if query.blank?
+    return project.issues if query.blank?
     # Default Kaminari per page is 25, as we are using here
-    results = send(scope)
-    case results
-    when ActiveRecord::Relation
-      results.page(page)
-    else
-      Kaminari.paginate_array(results).page(page)
-    end
+    send(scope)
   end
 
   def total_count

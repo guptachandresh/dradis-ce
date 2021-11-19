@@ -5,12 +5,20 @@ class SearchController < AuthenticatedController
   before_action :set_scope
 
   def index
+    # They send start as an index of what rows are shown. So we need to quickly
+    # calculate how that equates to a page
+    page = (params[:start].to_i / params[:length].to_i) + 1
+
     @search = Search.new(
       query: params[:q],
       scope: @scope,
-      page: params[:page],
+      page: page,
+      per: params[:length],
       project: current_project
-    )
+    ).results
+
+    @count = @search.count
+    @results = Kaminari.paginate_array(@search).page(page).per(params[:length])
   end
 
   private
