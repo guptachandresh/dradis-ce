@@ -1,4 +1,12 @@
 GIT
+  remote: https://github.com/dradis/dradis-csv.git
+  revision: b65eaf09581e4f72c5ba02caa95f28d128b2238a
+  branch: rtp-fields
+  specs:
+    dradis-csv (4.5.0)
+      dradis-plugins (~> 4.0)
+
+GIT
   remote: https://github.com/dradis/dradis-csv_export.git
   revision: 57a2fe6c14bf33fdb4612feddfc45fefeab1e853
   specs:
@@ -525,6 +533,7 @@ DEPENDENCIES
   dradis-burp (~> 4.4.0)
   dradis-calculator_cvss (~> 4.4.0)
   dradis-calculator_dread (~> 4.4.0)
+  dradis-csv!
   dradis-csv_export!
   dradis-html_export!
   dradis-metasploit (~> 4.4.0)
