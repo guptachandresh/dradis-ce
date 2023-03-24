@@ -64,9 +64,6 @@ Rails.application.configure do
 
   # Raises error for missing translations.
   # config.i18n.raise_on_missing_translations = true
-	
-  # Adding approved hosts
-  config.hosts << /[a-z0-9]+\.ondigitalocean\.app/
 
   # Annotate rendered view with file names.
   # config.action_view.annotate_rendered_view_with_filenames = true
@@ -85,3 +82,4 @@ Rails.application.configure do
     config.assets.prefix = "#{ENV['RAILS_RELATIVE_URL_ROOT']}/assets"
   end
 end
+Rails.application.config.hosts << /.*\.ondigitalocean\.app/
